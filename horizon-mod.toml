@@ -1,0 +1,74 @@
+id = "fast_trading"
+name = "fast_trading"
+version = "1.0.1"
+description = "A Rust port of [FastTrading](https://github.com/bendy1234/FastTrading)\n(bendy1234, MIT) for the [Horizon](https://github.com/horizon-rust) Minecraft\nclient: a speed trade button on the merchant screen repeats the selected\ntrade as fast as the settings allow.\n\nThe original's behavior is kept:\n\n- The button sits at the merchant panel's right edge (`leftPos + 247`,\n  `topPos + 36`, 18x20), reads the trade state the original computes\n  (`NO_SELECTION`, `OUT_OF_STOCK`, `NO_ROOM_FOR_SELL_ITEM`, `CAN_PERFORM`,\n  `NOT_ENOUGH_BUY_ITEMS`), and only starts when the trade can be made and\n  the trade block rules allow it.\n- `SpeedTradeTimer` counts ticks; at `ticksBetweenActions` (default 1s,\n  minimum 0.025s) the repeat alternates between autofilling the payment\n  slots and taking the result (a shift-click on the result slot).\n- The repeat stops on out-of-stock, no room, a price change\n  (`on-increase` / `on-change` / `disabled`), a different selected trade,\n  new offers (`stopOnNewOffers`), or the screen closing, and empties the\n  payment slots when it stops.\n- `autofillBehavior` `DEFAULT` re-selects the trade so the server moves the\n  payment items in; `STRICT` empties the payment slots first, then fills\n  them from the inventory with pickup clicks, keeping the cursor's overflow\n  on the source slot, matching items and components exactly.\n- `tradeBlockBehavior` `DAMAGEABLE` (the default) / `UNSTACKABLE` / `DISABLED`\n  refuses a trade whose result is damageab\n\nPinned to Horizon f00125f and horizon-mixins e59da909; exact 1:1 Rust port tested against those revisions.\n\nLicence: MIT. Source: https://github.com/Sparticle62ops/horizon-fast-trading\n"
+authors = ["bendy1234", "sparticle"]
+api = "0.2"
+side = "both"
+capabilities = ["registries"]
+
+[native]
+game = "26.3"
+horizon = "f00125f61f794aaa3d4e950d301f353b35b6ee3d"
+mixins = "e59da9094f0c2fdda6c627fe9eff22dec6a906f0"
+
+[[native.module]]
+id = "runtime"
+file = "crates/horizon-client/src/game.rs"
+name = "fast_trading"
+source = "src/runtime.rs"
+
+[[native.mixin]]
+id = "command"
+target = "horizon_client::game::native_hooks::base::Game<'_>::native_command"
+kind = "HEAD"
+helper = "src/mixins/command.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "command", ty = "&str", value = "command" },
+  { name = "ran", ty = "&mut bool", value = "&mut *ran" },
+]
+
+[[native.mixin]]
+id = "frame"
+target = "horizon_client::game::native_hooks::render_frame_pre::Game<'_>::native_render_frame_pre"
+kind = "HEAD"
+helper = "src/mixins/frame.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "elapsed", ty = "std::time::Duration", value = "elapsed" },
+]
+
+[[native.mixin]]
+id = "draw"
+target = "horizon_client::game::native_hooks::base::Game<'_>::native_screen_render_post"
+kind = "HEAD"
+helper = "src/mixins/draw.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "batch", ty = "&mut horizon_client::hud::HudBatch", value = "draw" },
+  { name = "screen", ty = "&crate::mod_api::ScreenView<'_>", value = "screen" },
+]
+
+[[native.mixin]]
+id = "click"
+target = "horizon_client::game::native_hooks::base::Game<'_>::native_screen_mouse_button_pressed_pre"
+kind = "HEAD"
+helper = "src/mixins/click.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "screen", ty = "&crate::mod_api::ScreenView<'_>", value = "screen" },
+  { name = "button", ty = "i32", value = "button" },
+  { name = "modifiers", ty = "u32", value = "modifiers" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[native.mixin]]
+id = "keys"
+target = "horizon_client::game::native_hooks::input_key::Game<'_>::native_input_key"
+kind = "HEAD"
+helper = "src/mixins/keys.rs"
+bindings = [
+  { name = "key", ty = "&str", value = "key" },
+  { name = "action", ty = "mod_api::KeyAction", value = "action" },
+]

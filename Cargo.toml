@@ -1,11 +1,14 @@
 [package]
 name = "horizon-mod-fast-trading"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 license = "MIT"
 publish = false
 description = "Repeat the selected villager trade fast on Horizon: a Rust port of FastTrading."
 
-# The mod logic and its tests: the same file the bundle adds to the game.
+# The mod logic's pure core and its tests. The game-touching half
+# (`mixins/fast_trading/runtime.rs` and its helpers) is injected into the
+# client by the bundle's horizon-mixin.toml and compiled there.
 [lib]
-path = "mixins/fast_trading/runtime.rs"
+path = "src/lib.rs"
+

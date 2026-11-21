@@ -298,8 +298,8 @@ pub fn press(game: &crate::game::Game<'_>) {
 }
 
 /// `MerchantScreenHooks.autofillSellSlots` for the selected trade.
-fn autofill(game: &mut crate::game::Game<'_>, index: usize) {
-    match RUNNER.lock().unwrap().config.autofill {
+fn autofill(game: &mut crate::game::Game<'_>, index: usize, mode: Autofill) {
+    match mode {
         Autofill::Default => {
                 let _ = game.merchant_key(winit::keyboard::KeyCode::Enter);
             }
@@ -404,7 +404,8 @@ fn stop(game: &mut crate::game::Game<'_>, r: &mut Runner) {
     clear_sell(game);
 }
 
-/// The mod's frame hook: `SpeedTradeButton.tick` driven by the frame clock.
+/// The mod's frame hook: `SpeedTradeButton.tick` driven by the frame
+/// clock, as the original advances its timer with the frame's elapsed time.
 pub fn frame(game: &mut crate::game::Game<'_>, elapsed: &std::time::Duration) {
     let mut r = RUNNER.lock().unwrap();
     if !r.timer_active {
@@ -420,7 +421,7 @@ pub fn frame(game: &mut crate::game::Game<'_>, elapsed: &std::time::Duration) {
         match r.phase {
             Some(Phase::Autofill) => {
                 let index = r.offer_idx;
-                autofill(game, index);
+                autofill(game, index, r.config.autofill);
                 r.phase = Some(Phase::Trade);
             }
             Some(Phase::Trade) => {
@@ -449,7 +450,7 @@ fn button_color(state: TradeState, primed: bool, hovered: bool, running: bool) -
 }
 
 /// `SpeedTradeButton.extractContents`: draw the button on the merchant panel.
-pub fn draw(game: &crate::game::Game<'_>, batch: &mut HudBatch, screen: &crate::mod_api::NativeScreenView<'_>) {
+pub fn draw(game: &crate::game::Game<'_>, batch: &mut HudBatch, screen: &crate::mod_api::ScreenView<'_>) {
     if screen.menu != Some("minecraft:merchant") || !game.native_on(ID) {
         return;
     }
@@ -481,7 +482,7 @@ pub fn draw(game: &crate::game::Game<'_>, batch: &mut HudBatch, screen: &crate::
 /// repeat, and the press goes no further.
 pub fn click(
     game: &crate::game::Game<'_>,
-    screen: &crate::mod_api::NativeScreenView<'_>,
+    screen: &crate::mod_api::ScreenView<'_>,
     button: i32,
     canceled: &mut bool,
 ) {
@@ -497,18 +498,13 @@ pub fn click(
 }
 
 /// The window key hook: track the override key (`key.fasttrading.overrideBlock`,
-/// Left Alt in the original's keymap).
-pub fn key(event: &winit::event::KeyEvent) {
-    use winit::event::ElementState;
-    use winit::keyboard::{KeyCode, PhysicalKey};
-    let alt = matches!(
-        event.physical_key,
-        PhysicalKey::Code(KeyCode::AltLeft) | PhysicalKey::Code(KeyCode::AltRight)
-    );
-    if !alt {
+/// Left Alt in the original's keymap). The client names physical keys
+/// `key.keyboard.*`, so both alt keys match by name.
+pub fn key(key_name: &str, action: crate::mod_api::KeyAction) {
+    if !key_name.contains("alt") {
         return;
     }
-    RUNNER.lock().unwrap().alt_down = event.state == ElementState::Pressed;
+    RUNNER.lock().unwrap().alt_down = !matches!(action, crate::mod_api::KeyAction::Release);
 }
 
 /// One `/fasttrading` change.
